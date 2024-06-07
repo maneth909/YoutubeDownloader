@@ -82,13 +82,12 @@ def download_video():
     url = st.session_state.url
     resolution = st.session_state.resolution
     st.session_state.progress = 0
-    st.session_state.status = "Downloading..."
     try:
         yt = YouTube(url, on_progress_callback=on_progress)  
         stream = yt.streams.filter(res=resolution).first()  
         download_path = os.path.join(st.session_state.download_path, f"{yt.title}.mp4") 
         stream.download(output_path=st.session_state.download_path)
-        st.session_state.status = "Downloaded!" 
+        # st.session_state.status = "Downloaded!" 
     except Exception as e:
         st.session_state.status = f"Error:{str(e)}"
 
@@ -98,7 +97,6 @@ def sanitize_filename(filename):
 def download_playlist():
     url = st.session_state.url
     st.session_state.progress = 0
-    st.session_state.status = "Downloading playlist..."
     try:
         playlist = Playlist(url)
         total_videos = len(playlist.video_urls)
@@ -119,7 +117,7 @@ def download_playlist():
                 AudioSegment.from_file(audio_file).export(mp3_file, format="mp3")
                 os.remove(audio_file)  # Remove the original file to keep only the MP3
             st.session_state.progress = (i / total_videos) * 100
-        st.session_state.status = "Playlist downloaded successfully!"
+        # st.session_state.status = "Playlist downloaded successfully!"
     except Exception as e:
         st.session_state.status = f"Error: {str(e)}"
 
@@ -146,7 +144,6 @@ AudioSegment.converter = "ffmpeg"
 def download_audio():
     url = st.session_state.url
     st.session_state.progress = 0
-    st.session_state.status = "Downloading..."
     try:
         yt = YouTube(url, on_progress_callback=on_progress)
         audio_stream = yt.streams.filter(only_audio=True).first()
@@ -156,7 +153,7 @@ def download_audio():
         mp3_file = os.path.join(st.session_state.download_path, f"{sanitized_title}.mp3")
         AudioSegment.from_file(audio_file).export(mp3_file, format="mp3")
         os.remove(audio_file)  # Remove the original file to keep only the MP3
-        st.session_state.status = f"Downloaded MP3: {mp3_file}"  # Update status with the file path
+        # st.session_state.status = f"Downloaded MP3: {mp3_file}"  # Update status with the file path
         return mp3_file
     except Exception as e:
         st.error(f"Error: {str(e)}")
@@ -204,9 +201,11 @@ with col2:
         if link:
             if "playlist" in link:
                 download_playlist()
+                st.success(f"MP4 downloaded successfully")
             else:
                 if selected_file_types == 'mp4':
                     download_video()
+                    st.success(f"MP4 downloaded successfully")
                 else:
                     mp3_file = download_audio()
                     if mp3_file:
