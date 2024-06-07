@@ -4,52 +4,81 @@ import os
 from pydub import AudioSegment
 from pytube import Playlist
 import re
+import json
+from datetime import datetime
+import pandas as pd
 
 st.set_page_config(layout="wide")
+
+def load_history():
+    try:
+        with open('download_history.json', 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return []
+
+def save_history(history):
+    with open('download_history.json', 'w') as f:
+        json.dump(history, f, indent=4)
+
+def add_to_history(title, url, file_type, download_path):
+    history = load_history()
+    history.append({
+        "title": title,
+        "url": url,
+        "file_type": file_type,
+        "download_path": download_path,
+        "timestamp": datetime.now().isoformat()
+    })
+    save_history(history)
 
 def dark_mode():
     st.markdown(
         """
         <style>
         body, .stApp {
-            background-color: #0e1117;
+            background-color: #222831;
             color: #ffffff;
         }
-        .sidebar .sidebar-content {
+        .sidebar .sidebar-content, .css-1d391kg, .css-18e3th9, .css-1v0mbdj {
             background-color: #262730;
-            color: #ffffff;
+            color: #222831;
         }
         .stButton > button {
-            background-color: #262730;
-            color: #ffffff;
+            background-color: #76ABAE;
+            color: #EEEEEE;
         }
         .stTextInput > div > div > input {
-            background-color: #333333;
+            background-color: #31363F;
             color: #ffffff;
         }
         .stSelectbox > div > div {
-            background-color: #333333;
-            color: #ffffff;
+            background-color: #31363F;
+            color: #EEEEEE;
         }
         .stSelectbox > div > div > div {
-            color: #ffffff;
+            color: #EEEEEE;
         }
         .stTextInput > label, .stSelectbox > label {
-            color: #ffffff;
+            color: #EEEEEE;
         }
         .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {
-            color: #ffffff;
+            color: #EEEEEE;
         }
         .css-145kmo2, .css-1v0mbdj, .css-1xarl3l, .css-18ni7ap {
-            color: #ffffff;
+            color: #EEEEEE;
         }
-        .stProgress > div > div > div > div {
-            background-color: #262730;
+        .stProgress > div > div {
+            background-color: #31363F;  /* Background color of the progress bar container */
+        }
+        .stProgress > div > div > div {
+            background-color: #31363F;  /* Color of the filled part of the progress bar */
         }
         </style>
         """,
         unsafe_allow_html=True
     )
+
 
 def light_mode():
     st.markdown(
@@ -83,11 +112,12 @@ def download_video():
     resolution = st.session_state.resolution
     st.session_state.progress = 0
     try:
-        yt = YouTube(url, on_progress_callback=on_progress)  
-        stream = yt.streams.filter(res=resolution).first()  
-        download_path = os.path.join(st.session_state.download_path, f"{yt.title}.mp4") 
+        yt = YouTube(url, on_progress_callback=on_progress)
+        stream = yt.streams.filter(res=resolution).first()
+        download_path = os.path.join(st.session_state.download_path, f"{yt.title}.mp4")
         stream.download(output_path=st.session_state.download_path)
-        # st.session_state.status = "Downloaded!" 
+        add_to_history(yt.title, url, 'mp4', download_path)
+        st.session_state.status = "Downloaded!"
     except Exception as e:
         st.session_state.status = f"Error:{str(e)}"
 
@@ -140,7 +170,6 @@ def get_playlist_info(url):
         return []
     
 
-AudioSegment.converter = "ffmpeg"
 def download_audio():
     url = st.session_state.url
     st.session_state.progress = 0
@@ -149,11 +178,12 @@ def download_audio():
         audio_stream = yt.streams.filter(only_audio=True).first()
         audio_file = audio_stream.download(output_path=st.session_state.download_path)
         base, ext = os.path.splitext(audio_file)
-        sanitized_title = sanitize_filename(yt.title)  # Sanitize the title here
+        sanitized_title = sanitize_filename(yt.title)
         mp3_file = os.path.join(st.session_state.download_path, f"{sanitized_title}.mp3")
         AudioSegment.from_file(audio_file).export(mp3_file, format="mp3")
-        os.remove(audio_file)  # Remove the original file to keep only the MP3
-        # st.session_state.status = f"Downloaded MP3: {mp3_file}"  # Update status with the file path
+        os.remove(audio_file)
+        add_to_history(yt.title, url, 'mp3', mp3_file)
+        st.session_state.status = f"Downloaded MP3: {mp3_file}"
         return mp3_file
     except Exception as e:
         st.error(f"Error: {str(e)}")
@@ -174,6 +204,8 @@ if is_dark_mode:
     dark_mode()
 else:
     light_mode()
+
+history = st.sidebar.button("History")
 
 col1,col2,col3,col4,col5 = st.columns([0.5,6,0.5,5,0.5])
 
@@ -238,7 +270,7 @@ with col4:
             youtube_embed_url = f"https://www.youtube.com/embed/{video_id}"
             st.markdown(
                 f"""
-                <iframe width="640" height="360" src="{youtube_embed_url}" frameborder="0" allowfullscreen></iframe>
+                <iframe width="360" height="200" src="{youtube_embed_url}" frameborder="0" allowfullscreen></iframe>
                 """,
                 unsafe_allow_html=True,
             )
@@ -253,3 +285,12 @@ with col4:
                     st.write(f"**Length:** {yt.length // 60} minutes {yt.length % 60} seconds")
             except Exception as e:
                 st.error(f"Failed to retrieve video information: {str(e)}")
+
+    if history:
+        st.write("### Download History")
+        history = load_history()
+        if history:
+            df = pd.DataFrame(history)
+            st.dataframe(df)
+        else:
+            st.write("No downloads yet.")
