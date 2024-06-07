@@ -2,6 +2,10 @@ import streamlit as st
 from pytube import YouTube
 import os
 from pydub import AudioSegment
+from pytube import Playlist
+import re
+
+st.set_page_config(layout="wide")
 
 def dark_mode():
     st.markdown(
@@ -87,6 +91,56 @@ def download_video():
     except Exception as e:
         st.session_state.status = f"Error:{str(e)}"
 
+def sanitize_filename(filename):
+    return re.sub(r'[\\/*?:"<>|]', "", filename)
+
+def download_playlist():
+    url = st.session_state.url
+    st.session_state.progress = 0
+    st.session_state.status = "Downloading playlist..."
+    try:
+        playlist = Playlist(url)
+        total_videos = len(playlist.video_urls)
+        for i, video_url in enumerate(playlist.video_urls, start=1):
+            yt = YouTube(video_url)
+            sanitized_title = sanitize_filename(yt.title)
+            if st.session_state.file_type == 'mp4':
+                stream = yt.streams.filter(res=st.session_state.resolution, file_extension='mp4').first()
+                if stream is None:  # if the resolution is not available, fallback to the highest resolution
+                    stream = yt.streams.filter(file_extension='mp4').order_by('resolution').desc().first()
+                download_path = os.path.join(st.session_state.download_path, f"{sanitized_title}.mp4")
+                stream.download(output_path=st.session_state.download_path)
+            elif st.session_state.file_type == 'mp3':
+                audio_stream = yt.streams.filter(only_audio=True).first()
+                audio_file = audio_stream.download(output_path=st.session_state.download_path)
+                base, ext = os.path.splitext(audio_file)
+                mp3_file = os.path.join(st.session_state.download_path, f"{sanitized_title}.mp3")
+                AudioSegment.from_file(audio_file).export(mp3_file, format="mp3")
+                os.remove(audio_file)  # Remove the original file to keep only the MP3
+            st.session_state.progress = (i / total_videos) * 100
+        st.session_state.status = "Playlist downloaded successfully!"
+    except Exception as e:
+        st.session_state.status = f"Error: {str(e)}"
+
+def get_playlist_info(url):
+    try:
+        playlist = Playlist(url)
+        videos_info = []
+        for video_url in playlist.video_urls:
+            yt = YouTube(video_url)
+            video_info = {
+                "title": yt.title,
+                "video_id": yt.video_id,
+                "author": yt.author,
+                "length": yt.length,
+            }
+            videos_info.append(video_info)
+        return videos_info
+    except Exception as e:
+        st.error(f"Failed to retrieve playlist information: {str(e)}")
+        return []
+    
+
 AudioSegment.converter = "ffmpeg"
 def download_audio():
     url = st.session_state.url
@@ -118,17 +172,16 @@ if 'status' not in st.session_state:
 # if 'file_types' not in st.session_state:
 #     st.session_state.file_types=""
 
-st.title("Youtube Downloader")
-
 is_dark_mode = st.sidebar.checkbox("Dark mode")
 if is_dark_mode:
     dark_mode()
 else:
     light_mode()
 
-col1,col2 = st.columns([3,2])
+col1,col2,col3,col4,col5 = st.columns([0.5,6,0.5,5,0.5])
 
-with col1:
+with col2:
+    st.title("Youtube Downloader")
     link = st.text_input("Enter the YouTube URL here:", key='url')
 
     sub_col1,sub_col2,sub_col3 = st.columns([2,1.2,1.2])
@@ -136,31 +189,71 @@ with col1:
     with sub_col1:
         download_path = st.text_input("Enter the download path:", value=os.path.expanduser("~"), key='download_path') 
 
+    # number_of_file = ["One","Playlist"]
+    # with sub_col2:
+    #     num_file = st.selectbox("Number of file",number_of_file, key='number_of_file')
+
     file_type = ["mp4","mp3"]
     with sub_col2:
-        selected_file_types = st.selectbox("Select file type:", file_type, key='file_type')
+        selected_file_types = st.selectbox("File type:", file_type, key='file_type')
 
     resolutions = ["720p","360p","240p"]
     with sub_col3:
         if selected_file_types == "mp4":
-            st.selectbox("Select resolution:", resolutions, key='resolution')
+            st.selectbox("Resolution:", resolutions, key='resolution')
 
     if st.button("Download"):
         if link:
-            if selected_file_types == 'mp4':
-                download_video()
+            if "playlist" in link:
+                download_playlist()
             else:
-                mp3_file = download_audio()
-                if mp3_file:
-                    st.success(f"Audio downloaded successfully: {mp3_file}")
+                if selected_file_types == 'mp4':
+                    download_video()
+                else:
+                    mp3_file = download_audio()
+                    if mp3_file:
+                        st.success(f"Audio downloaded successfully: {mp3_file}")
         else:
             st.error("Please enter a YouTube URL")
+    
+        st.progress(st.session_state.progress / 100)
+        st.text(st.session_state.status)
 
-        
-    st.progress(st.session_state.progress/100)
-    st.text(st.session_state.status)
-
-
-
-
-
+with col4:
+    if link:
+        if "playlist" in link:
+            playlist_info = get_playlist_info(link)
+            if playlist_info:
+                st.write("### Playlist Preview")
+                for video in playlist_info:
+                    youtube_embed_url = f"https://www.youtube.com/embed/{video['video_id']}"
+                    st.markdown(
+                        f"""
+                        <iframe width="320" height="180" src="{youtube_embed_url}" frameborder="0" allowfullscreen></iframe>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+                    st.write(f"**Title:** {video['title']}")
+                    st.write(f"**Author:** {video['author']}")
+                    st.write(f"**Length:** {video['length'] // 60} minutes {video['length'] % 60} seconds")
+                    st.write("---")
+        else:
+            video_id = link.split("v=")[1] if "v=" in link else link.split("/")[-1]
+            youtube_embed_url = f"https://www.youtube.com/embed/{video_id}"
+            st.markdown(
+                f"""
+                <iframe width="640" height="360" src="{youtube_embed_url}" frameborder="0" allowfullscreen></iframe>
+                """,
+                unsafe_allow_html=True,
+            )
+            try:
+                yt = YouTube(link)
+                a1, a2 = st.columns([1, 1])
+                with a1:
+                    st.image(yt.thumbnail_url, caption="Thumbnail")
+                with a2:
+                    st.write(f"**Title:** {yt.title}")
+                    st.write(f"**Author:** {yt.author}")
+                    st.write(f"**Length:** {yt.length // 60} minutes {yt.length % 60} seconds")
+            except Exception as e:
+                st.error(f"Failed to retrieve video information: {str(e)}")
