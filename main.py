@@ -76,6 +76,7 @@ def on_progress(stream, chunk, bytes_remaining):
     bytes_downloaded = total_size - bytes_remaining
     percentage_completed = bytes_downloaded / total_size * 100
     st.session_state.progress = percentage_completed
+    progress_bar.progress(int(percentage_completed))  # Update progress bar
 
 def download_video():
     url = st.session_state.url
@@ -102,8 +103,8 @@ def download_playlist():
         playlist = Playlist(url)
         total_videos = len(playlist.video_urls)
         for i, video_url in enumerate(playlist.video_urls, start=1):
-            yt = YouTube(video_url)
-            sanitized_title = sanitize_filename(yt.title)
+            yt = YouTube(video_url, on_progress_callback=on_progress)
+            sanitized_title = sanitize_filename(yt.title)  # Sanitize the title here
             if st.session_state.file_type == 'mp4':
                 stream = yt.streams.filter(res=st.session_state.resolution, file_extension='mp4').first()
                 if stream is None:  # if the resolution is not available, fallback to the highest resolution
@@ -151,7 +152,8 @@ def download_audio():
         audio_stream = yt.streams.filter(only_audio=True).first()
         audio_file = audio_stream.download(output_path=st.session_state.download_path)
         base, ext = os.path.splitext(audio_file)
-        mp3_file = os.path.join(st.session_state.download_path, f"{yt.title}.mp3")
+        sanitized_title = sanitize_filename(yt.title)  # Sanitize the title here
+        mp3_file = os.path.join(st.session_state.download_path, f"{sanitized_title}.mp3")
         AudioSegment.from_file(audio_file).export(mp3_file, format="mp3")
         os.remove(audio_file)  # Remove the original file to keep only the MP3
         st.session_state.status = f"Downloaded MP3: {mp3_file}"  # Update status with the file path
@@ -169,8 +171,6 @@ if 'progress' not in st.session_state:
     st.session_state.progress=0
 if 'status' not in st.session_state:
     st.session_state.status=""
-# if 'file_types' not in st.session_state:
-#     st.session_state.file_types=""
 
 is_dark_mode = st.sidebar.checkbox("Dark mode")
 if is_dark_mode:
@@ -189,10 +189,6 @@ with col2:
     with sub_col1:
         download_path = st.text_input("Enter the download path:", value=os.path.expanduser("~"), key='download_path') 
 
-    # number_of_file = ["One","Playlist"]
-    # with sub_col2:
-    #     num_file = st.selectbox("Number of file",number_of_file, key='number_of_file')
-
     file_type = ["mp4","mp3"]
     with sub_col2:
         selected_file_types = st.selectbox("File type:", file_type, key='file_type')
@@ -201,6 +197,8 @@ with col2:
     with sub_col3:
         if selected_file_types == "mp4":
             st.selectbox("Resolution:", resolutions, key='resolution')
+
+    progress_bar = st.progress(0)  # Initialize progress bar
 
     if st.button("Download"):
         if link:
@@ -215,8 +213,7 @@ with col2:
                         st.success(f"Audio downloaded successfully: {mp3_file}")
         else:
             st.error("Please enter a YouTube URL")
-    
-        st.progress(st.session_state.progress / 100)
+
         st.text(st.session_state.status)
 
 with col4:
