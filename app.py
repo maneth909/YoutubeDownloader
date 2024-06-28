@@ -21,14 +21,14 @@ def download_video():
     try:
         yt = YouTube(url, on_progress_callback=on_progress)
         stream = yt.streams.filter(res=resolution).first()
+        if stream is None:
+            st.session_state.status = "No video stream available for the selected resolution."
+            return
         download_path = os.path.join(st.session_state.download_path, f"{yt.title}.mp4")
         stream.download(output_path=st.session_state.download_path)
         st.session_state.status = "Downloaded!"
     except Exception as e:
-        st.session_state.status = f"Error:{str(e)}"
-
-def sanitize_filename(filename):
-    return re.sub(r'[\\/*?:"<>|]', "", filename)
+        st.session_state.status = f"Error: {str(e)}"
 
 def download_playlist():
     url = st.session_state.url
@@ -43,10 +43,16 @@ def download_playlist():
                 stream = yt.streams.filter(res=st.session_state.resolution, file_extension='mp4').first()
                 if stream is None:
                     stream = yt.streams.filter(file_extension='mp4').order_by('resolution').desc().first()
+                if stream is None:
+                    st.error(f"No video stream available for {yt.title} at the selected resolution.")
+                    continue
                 download_path = os.path.join(st.session_state.download_path, f"{sanitized_title}.mp4")
                 stream.download(output_path=st.session_state.download_path)
             elif st.session_state.file_type == 'mp3':
                 audio_stream = yt.streams.filter(only_audio=True).first()
+                if audio_stream is None:
+                    st.error(f"No audio stream available for {yt.title}.")
+                    continue
                 audio_file = audio_stream.download(output_path=st.session_state.download_path)
                 base, ext = os.path.splitext(audio_file)
                 mp3_file = os.path.join(st.session_state.download_path, f"{sanitized_title}.mp3")
@@ -55,6 +61,7 @@ def download_playlist():
             st.session_state.progress = (i / total_videos) * 100
     except Exception as e:
         st.session_state.status = f"Error: {str(e)}"
+
 
 def get_playlist_info(url):
     try:
@@ -120,7 +127,7 @@ with col2:
     with sub_col2:
         selected_file_types = st.selectbox("File type:", file_type, key='file_type')
 
-    resolutions = ["240", "360", "720p", "1080p", "1440p", "2160p"]
+    resolutions = ["240", "360", "720p", "1080p", "1440p", "2160p","720p30", "1080p30", "1440p30", "2160p30", "720p60", "1080p60", "1440p60", "2160p60"]
     with sub_col3:
         if selected_file_types == "mp4":
             st.selectbox("Resolution:", resolutions, key='resolution')
