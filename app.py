@@ -4,108 +4,15 @@ import os
 from pydub import AudioSegment
 from pytube import Playlist
 import re
-import json
-from datetime import datetime
-import pandas as pd
 
 st.set_page_config(layout="wide")
-
-def load_history():
-    try:
-        with open('download_history.json', 'r') as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return []
-
-def save_history(history):
-    with open('download_history.json', 'w') as f:
-        json.dump(history, f, indent=4)
-
-def add_to_history(title, url, file_type, download_path):
-    history = load_history()
-    history.append({
-        "title": title,
-        "url": url,
-        "file_type": file_type,
-        "download_path": download_path,
-        "timestamp": datetime.now().isoformat()
-    })
-    save_history(history)
-
-def dark_mode():
-    st.markdown(
-        """
-        <style>
-        body, .stApp {
-            background-color: #222831;
-            color: #ffffff;
-        }
-        .sidebar .sidebar-content, .css-1d391kg, .css-18e3th9, .css-1v0mbdj {
-            background-color: #262730;
-            color: #222831;
-        }
-        .stButton > button {
-            background-color: #76ABAE;
-            color: #EEEEEE;
-        }
-        .stTextInput > div > div > input {
-            background-color: #31363F;
-            color: #ffffff;
-        }
-        .stSelectbox > div > div {
-            background-color: #31363F;
-            color: #EEEEEE;
-        }
-        .stSelectbox > div > div > div {
-            color: #EEEEEE;
-        }
-        .stTextInput > label, .stSelectbox > label {
-            color: #EEEEEE;
-        }
-        .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {
-            color: #EEEEEE;
-        }
-        .css-145kmo2, .css-1v0mbdj, .css-1xarl3l, .css-18ni7ap {
-            color: #EEEEEE;
-        }
-        .stProgress > div > div {
-            background-color: #31363F;  /* Background color of the progress bar container */
-        }
-        .stProgress > div > div > div {
-            background-color: #31363F;  /* Color of the filled part of the progress bar */
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-
-
-def light_mode():
-    st.markdown(
-        """
-        <style>
-        body {
-            background-color: #ffffff;
-            color: #000000;
-        }
-        .sidebar .sidebar-content {
-            background-color: #f0f2f6;
-        }
-        .stButton > button {
-            background-color: #f0f2f6;
-            color: #000000;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
 
 def on_progress(stream, chunk, bytes_remaining):
     total_size = stream.filesize
     bytes_downloaded = total_size - bytes_remaining
     percentage_completed = bytes_downloaded / total_size * 100
     st.session_state.progress = percentage_completed
-    progress_bar.progress(int(percentage_completed))  # Update progress bar
+    progress_bar.progress(int(percentage_completed))  
 
 def download_video():
     url = st.session_state.url
@@ -116,7 +23,6 @@ def download_video():
         stream = yt.streams.filter(res=resolution).first()
         download_path = os.path.join(st.session_state.download_path, f"{yt.title}.mp4")
         stream.download(output_path=st.session_state.download_path)
-        add_to_history(yt.title, url, 'mp4', download_path)
         st.session_state.status = "Downloaded!"
     except Exception as e:
         st.session_state.status = f"Error:{str(e)}"
@@ -132,10 +38,10 @@ def download_playlist():
         total_videos = len(playlist.video_urls)
         for i, video_url in enumerate(playlist.video_urls, start=1):
             yt = YouTube(video_url, on_progress_callback=on_progress)
-            sanitized_title = sanitize_filename(yt.title)  # Sanitize the title here
+            sanitized_title = sanitize_filename(yt.title)
             if st.session_state.file_type == 'mp4':
                 stream = yt.streams.filter(res=st.session_state.resolution, file_extension='mp4').first()
-                if stream is None:  # if the resolution is not available, fallback to the highest resolution
+                if stream is None:
                     stream = yt.streams.filter(file_extension='mp4').order_by('resolution').desc().first()
                 download_path = os.path.join(st.session_state.download_path, f"{sanitized_title}.mp4")
                 stream.download(output_path=st.session_state.download_path)
@@ -145,9 +51,8 @@ def download_playlist():
                 base, ext = os.path.splitext(audio_file)
                 mp3_file = os.path.join(st.session_state.download_path, f"{sanitized_title}.mp3")
                 AudioSegment.from_file(audio_file).export(mp3_file, format="mp3")
-                os.remove(audio_file)  # Remove the original file to keep only the MP3
+                os.remove(audio_file)
             st.session_state.progress = (i / total_videos) * 100
-        # st.session_state.status = "Playlist downloaded successfully!"
     except Exception as e:
         st.session_state.status = f"Error: {str(e)}"
 
@@ -168,7 +73,6 @@ def get_playlist_info(url):
     except Exception as e:
         st.error(f"Failed to retrieve playlist information: {str(e)}")
         return []
-    
 
 def download_audio():
     url = st.session_state.url
@@ -182,13 +86,11 @@ def download_audio():
         mp3_file = os.path.join(st.session_state.download_path, f"{sanitized_title}.mp3")
         AudioSegment.from_file(audio_file).export(mp3_file, format="mp3")
         os.remove(audio_file)
-        add_to_history(yt.title, url, 'mp3', mp3_file)
         st.session_state.status = f"Downloaded MP3: {mp3_file}"
         return mp3_file
     except Exception as e:
         st.error(f"Error: {str(e)}")
         return None
-
 
 if 'url' not in st.session_state:
     st.session_state.url=""
@@ -199,30 +101,22 @@ if 'progress' not in st.session_state:
 if 'status' not in st.session_state:
     st.session_state.status=""
 
-is_dark_mode = st.sidebar.checkbox("Dark mode")
-if is_dark_mode:
-    dark_mode()
-else:
-    light_mode()
-
-history = st.sidebar.button("History")
-
-col1,col2,col3,col4,col5 = st.columns([0.5,6,0.5,5,0.5])
+col1, col2, col3, col4, col5 = st.columns([0.5, 6, 0.5, 5, 0.5])
 
 with col2:
     st.title("Youtube Downloader")
     link = st.text_input("Enter the YouTube URL here:", key='url')
 
-    sub_col1,sub_col2,sub_col3 = st.columns([2,1.2,1.2])
+    sub_col1, sub_col2, sub_col3 = st.columns([2, 1.2, 1.2])
 
     with sub_col1:
-        download_path = st.text_input("Enter the download path:", value=os.path.expanduser("~"), key='download_path') 
+        download_path = st.text_input("Enter the download path:", value=os.path.expanduser("~"), key='download_path')
 
-    file_type = ["mp4","mp3"]
+    file_type = ["mp4", "mp3"]
     with sub_col2:
         selected_file_types = st.selectbox("File type:", file_type, key='file_type')
 
-    resolutions = ["720p","360p","240p"]
+    resolutions = ["240", "360", "720p", "1080p", "1440p", "2160p"]
     with sub_col3:
         if selected_file_types == "mp4":
             st.selectbox("Resolution:", resolutions, key='resolution')
@@ -285,12 +179,3 @@ with col4:
                     st.write(f"**Length:** {yt.length // 60} minutes {yt.length % 60} seconds")
             except Exception as e:
                 st.error(f"Failed to retrieve video information: {str(e)}")
-
-    if history:
-        st.write("### Download History")
-        history = load_history()
-        if history:
-            df = pd.DataFrame(history)
-            st.dataframe(df)
-        else:
-            st.write("No downloads yet.")
