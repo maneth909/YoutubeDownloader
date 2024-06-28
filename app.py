@@ -7,6 +7,9 @@ import re
 
 st.set_page_config(layout="wide")
 
+def sanitize_filename(filename):
+    return re.sub(r'[\\/*?:"<>|]', "", filename)
+
 def on_progress(stream, chunk, bytes_remaining):
     total_size = stream.filesize
     bytes_downloaded = total_size - bytes_remaining
@@ -91,6 +94,11 @@ def download_audio():
         base, ext = os.path.splitext(audio_file)
         sanitized_title = sanitize_filename(yt.title)
         mp3_file = os.path.join(st.session_state.download_path, f"{sanitized_title}.mp3")
+        
+        # Set the ffmpeg and ffprobe paths for pydub
+        AudioSegment.ffmpeg = "ffmpeg"  # Ensure ffmpeg is in your PATH or provide the full path
+        AudioSegment.ffprobe = "ffprobe"  # Ensure ffprobe is in your PATH or provide the full path
+
         AudioSegment.from_file(audio_file).export(mp3_file, format="mp3")
         os.remove(audio_file)
         st.session_state.status = f"Downloaded MP3: {mp3_file}"
@@ -98,6 +106,7 @@ def download_audio():
     except Exception as e:
         st.error(f"Error: {str(e)}")
         return None
+
 
 if 'url' not in st.session_state:
     st.session_state.url=""
