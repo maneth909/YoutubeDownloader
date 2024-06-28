@@ -101,7 +101,9 @@ if 'progress' not in st.session_state:
 if 'status' not in st.session_state:
     st.session_state.status=""
 
-col1, col2, col3, col4, col5 = st.columns([0.5, 6, 0.5, 5, 0.5])
+# col1, col2, col3, col4, col5 = st.columns([0.5, 6, 0.5, 5, 0.5])
+col1, col2, col3, col4, col5 = st.columns([1, 8, 1, 8, 1])
+
 
 with col2:
     st.title("Youtube Downloader")
