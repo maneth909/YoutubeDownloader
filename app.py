@@ -113,7 +113,8 @@ with col2:
 
     with sub_col1:
         #download_path = st.text_input("Enter the download path:", value=os.path.expanduser("~"), key='download_path')
-        download_path = st.text_input("Enter the download path:", value=os.path.join("C:", "Users", os.getlogin(), "Downloads"), key='download_path')
+        #download_path = st.text_input("Enter the download path:", value=os.path.join("C:", "Users", os.getlogin(), "Downloads"), key='download_path')
+        download_path = st.text_input("Enter the download path:", value=os.path.join(os.path.expanduser("~"), "Downloads"), key='download_path')
 
     file_type = ["mp4", "mp3"]
     with sub_col2:
