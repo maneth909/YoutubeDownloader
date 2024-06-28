@@ -59,9 +59,15 @@ def download_playlist():
                 audio_file = audio_stream.download(output_path=st.session_state.download_path)
                 base, ext = os.path.splitext(audio_file)
                 mp3_file = os.path.join(st.session_state.download_path, f"{sanitized_title}.mp3")
+                
+                # Set the ffmpeg and ffprobe paths for pydub
+                AudioSegment.ffmpeg = "/usr/local/bin/ffmpeg"  # Example path for ffmpeg
+                AudioSegment.ffprobe = "/usr/local/bin/ffprobe"  # Example path for ffprobe
+
                 AudioSegment.from_file(audio_file).export(mp3_file, format="mp3")
                 os.remove(audio_file)
-            st.session_state.progress = (i / total_videos) * 100
+                st.session_state.status = f"Downloaded MP3: {mp3_file}"
+        st.session_state.progress = (i / total_videos) * 100
     except Exception as e:
         st.session_state.status = f"Error: {str(e)}"
 
@@ -96,8 +102,8 @@ def download_audio():
         mp3_file = os.path.join(st.session_state.download_path, f"{sanitized_title}.mp3")
         
         # Set the ffmpeg and ffprobe paths for pydub
-        AudioSegment.ffmpeg = "ffmpeg"  # Ensure ffmpeg is in your PATH or provide the full path
-        AudioSegment.ffprobe = "ffprobe"  # Ensure ffprobe is in your PATH or provide the full path
+        AudioSegment.ffmpeg = "/usr/local/bin/ffmpeg"  # Example path for ffmpeg
+        AudioSegment.ffprobe = "/usr/local/bin/ffprobe"  # Example path for ffprobe
 
         AudioSegment.from_file(audio_file).export(mp3_file, format="mp3")
         os.remove(audio_file)
