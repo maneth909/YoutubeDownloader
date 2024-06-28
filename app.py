@@ -127,7 +127,7 @@ with col2:
     with sub_col2:
         selected_file_types = st.selectbox("File type:", file_type, key='file_type')
 
-    resolutions = ["240", "360", "720p", "1080p", "1440p", "2160p","720p30", "1080p30", "1440p30", "2160p30", "720p60", "1080p60", "1440p60", "2160p60"]
+    resolutions = ["240", "360", "720p", "1080p", "1440p", "2160p"]
     with sub_col3:
         if selected_file_types == "mp4":
             st.selectbox("Resolution:", resolutions, key='resolution')
